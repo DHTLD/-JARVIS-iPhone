@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#05070b">
+<link rel="manifest" href="manifest.json">
+<title>JARVIS Mobile</title>
+<style>
+:root{--bg:#05070b;--panel:#0b1018;--line:#1c2938;--text:#e8f1ff;--muted:#8da0b8;--cyan:#54d7ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#10283a,#05070b 48%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;min-height:100vh}
+header{padding:calc(env(safe-area-inset-top) + 18px) 18px 12px;display:flex;justify-content:space-between}.logo{font-weight:800;letter-spacing:7px}.online{color:#65e2a0;font-size:11px}
+main{max-width:720px;margin:auto;padding:10px 16px 125px}.orb{width:190px;height:190px;margin:18px auto 28px;border-radius:50%;background:radial-gradient(circle,#9cecff 0 2%,#238fc5 9%,#082b42 44%,transparent 70%);box-shadow:0 0 50px #38cfff44}.card{background:#0a0f17dd;border:1px solid var(--line);border-radius:20px;padding:15px;margin-bottom:12px;backdrop-filter:blur(18px)}.chat{min-height:220px;max-height:42vh;overflow:auto}.msg{padding:11px 13px;border-radius:15px;margin:8px 0;line-height:1.4;font-size:15px}.user{background:#12324a;margin-left:35px}.jarvis{background:#101720;border:1px solid var(--line);margin-right:20px}
+.row{display:flex;gap:8px}input{width:100%;background:#070b11;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:13px;outline:0}button{font:inherit;background:#0d1620;color:var(--text);border:1px solid var(--line);border-radius:13px;padding:12px 14px;font-weight:650}.primary{background:linear-gradient(135deg,#1b8fff,#43dfff);color:#031019;border:0}.mic{display:block;margin:15px auto;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle,#54d7ff,#1474a9);box-shadow:0 0 35px #38cfff55;font-size:24px}.mic.on{background:#b52943}label{display:block;color:var(--muted);font-size:12px;margin:12px 0 6px}.small{color:var(--muted);font-size:12px;line-height:1.45}.contact{display:flex;gap:7px;margin:8px 0}.contact input:first-child{flex:1}.contact input:nth-child(2){max-width:160px}nav{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#070b11ee;border-top:1px solid var(--line);display:flex;gap:8px}nav button{flex:1}.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header><div class="logo">JARVIS</div><div class="online">● ONLINE</div></header>
+<main>
+<div class="orb"></div>
+<section class="card chat" id="chat"></section>
+<button class="mic" id="mic">🎙️</button>
+<div class="row"><input id="text" placeholder="Command JARVIS..."><button class="primary" id="send">Send</button></div>
+<section class="card" id="settings">
+<h3>Mobile Core</h3>
+<label>OpenRouter API key</label><input id="key" type="password" placeholder="sk-or-...">
+<label>Model</label><input id="model" value="openrouter/free">
+<label>WhatsApp contact</label>
+<div class="contact"><input id="cname" placeholder="Mom"><input id="cnum" placeholder="+961..."><button id="add">Add</button></div>
+<div id="contacts"></div>
+<p class="small">This is a phone-native JARVIS prototype. WhatsApp controls the final send/call action on iOS; a web app cannot silently control another app. For production, use a private backend for the AI key.</p>
+</section>
+</main>
+<nav><button id="home">JARVIS</button><button id="wa">WhatsApp</button><button id="set">Settings</button></nav>
+<script>
+const $=x=>document.getElementById(x);
+const S={key:localStorage.jk||"",model:localStorage.jm||"openrouter/free",contacts:JSON.parse(localStorage.jc||"[]")};
+$("key").value=S.key;$("model").value=S.model;
+function save(){S.key=$("key").value.trim();S.model=$("model").value.trim()||"openrouter/free";localStorage.jk=S.key;localStorage.jm=S.model}
+$("key").onchange=save;$("model").onchange=save;
+function msg(c,t){let d=document.createElement("div");d.className="msg "+c;d.textContent=t;$("chat").appendChild(d);$("chat").scrollTop=1e9}
+function render(){let e=$("contacts");e.innerHTML="";S.contacts.forEach(c=>{let d=document.createElement("div");d.className="contact";d.innerHTML=`<input disabled value="${c.name}"><input disabled value="+${c.num}"><button>Message</button><button>Call</button>`;d.children[2].onclick=()=>wa(c,"");d.children[3].onclick=()=>wa(c,"");e.appendChild(d)})}
+function wa(c,text){location.href="https://wa.me/"+c.num+(text?"?text="+encodeURIComponent(text):"")}
+$("add").onclick=()=>{let n=$("cname").value.trim(),p=$("cnum").value.replace(/\D/g,"");if(!n||!p)return alert("Enter a name and international number.");S.contacts.push({name:n,num:p});localStorage.jc=JSON.stringify(S.contacts);$("cname").value="";$("cnum").value="";render()};render();
+async function ask(q){
+save(); if(!S.key){msg("jarvis","Add your OpenRouter API key in Settings first.");return}
+msg("jarvis","Thinking...");
+try{
+let r=await fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+S.key,"X-Title":"JARVIS Mobile"},body:JSON.stringify({model:S.model,messages:[{role:"system",content:"You are JARVIS, Marc's concise futuristic personal AI assistant. Be direct and natural. Never claim to have performed a phone action you cannot perform. If asked to call/message on WhatsApp from iPhone, explain the iOS limitation and provide the correct action."},{role:"user",content:q}]})});
+let j=await r.json();if(!r.ok)throw Error(j.error?.message||"AI request failed");document.querySelectorAll(".jarvis").item(document.querySelectorAll(".jarvis").length-1)?.remove();let a=j.choices?.[0]?.message?.content||"No response.";msg("jarvis",a);speak(a)
+}catch(e){document.querySelectorAll(".jarvis").item(document.querySelectorAll(".jarvis").length-1)?.remove();msg("jarvis","I couldn't complete that: "+e.message)}
+}
+function speak(t){if(!speechSynthesis)return;speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(t);u.rate=.74;u.pitch=.58;let v=speechSynthesis.getVoices().find(v=>/daniel|alex|guy|male/i.test(v.name));if(v)u.voice=v;speechSynthesis.speak(u)}
+$("send").onclick=()=>{let q=$("text").value.trim();if(!q)return;msg("user",q);$("text").value="";ask(q)};$("text").onkeydown=e=>{if(e.key==="Enter")$("send").click()};
+let R=null,on=false;function listen(){let C=window.SpeechRecognition||window.webkitSpeechRecognition;if(!C){alert("Speech recognition is unavailable in this browser. Use the iPhone keyboard microphone or type.");return}R=new C();R.lang="en-US";R.continuous=false;R.interimResults=false;R.onstart=()=>{$("mic").classList.add("on");on=true};R.onend=()=>{$("mic").classList.remove("on");on=false};R.onerror=e=>msg("jarvis","Microphone error: "+e.error);R.onresult=e=>{let q=e.results[0][0].transcript;msg("user",q);ask(q)};R.start()}$("mic").onclick=()=>on?R.stop():listen();
+$("home").onclick=()=>scrollTo({top:0,behavior:"smooth"});$("wa").onclick=()=>{$("settings").scrollIntoView({behavior:"smooth"})};$("set").onclick=()=>{$("settings").classList.toggle("hidden")};
+msg("jarvis","JARVIS mobile online. Your PC can be completely off.");
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+</script>
+</body></html>
